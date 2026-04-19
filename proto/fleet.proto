@@ -1,0 +1,226 @@
+syntax = "proto3";
+
+package fleet.v1;
+
+option go_package = "github.com/robot-fleet/proto/fleet/v1;fleetv1";
+
+import "google/protobuf/timestamp.proto";
+
+// ─────────────────────────────────────────────
+// Shared device identity types
+// ─────────────────────────────────────────────
+
+message DeviceInfo {
+  string device_id  = 1; // UUID assigned on bootstrap enrollment
+  string serial     = 2; // factory serial number (from device cert CN)
+  string model      = 3; // e.g. "humanoid-v2"
+  string firmware   = 4; // current firmware/software version
+  string status     = 5; // "pending"|"active"|"suspended"|"decommissioned"
+  google.protobuf.Timestamp enrolled_at  = 6;
+  google.protobuf.Timestamp last_seen_at = 7;
+  map<string,string> labels = 8;
+}
+
+// ─────────────────────────────────────────────
+// Device Management Service
+//
+// Auth model:
+//   BootstrapEnroll  — device CA cert (mTLS, device CA trust anchor)
+//   All other RPCs   — operational cert (mTLS, fleet CA trust anchor)
+// ─────────────────────────────────────────────
+
+service DeviceManagementService {
+  // BootstrapEnroll is called exactly once on first boot.
+  // The robot presents its factory device cert (mTLS peer cert).
+  // Returns a signed operational cert and the fleet CA chain to pin.
+  rpc BootstrapEnroll(BootstrapEnrollRequest)   returns (BootstrapEnrollResponse);
+
+  // RenewCert rotates the operational cert before expiry.
+  // Authenticated by the current operational cert.
+  rpc RenewCert(RenewCertRequest)               returns (RenewCertResponse);
+
+  // GetDevice returns live metadata for a registered device.
+  rpc GetDevice(GetDeviceRequest)               returns (DeviceInfo);
+
+  // ListDevices returns filtered device inventory (operator use).
+  rpc ListDevices(ListDevicesRequest)           returns (ListDevicesResponse);
+
+  // UpdateDeviceStatus allows operators to suspend or reactivate a device.
+  rpc UpdateDeviceStatus(UpdateDeviceStatusRequest) returns (UpdateDeviceStatusResponse);
+
+  // StreamHeartbeat is a bidirectional stream: robot sends lightweight
+  // liveness pings; server sends back directives.
+  rpc StreamHeartbeat(stream HeartbeatRequest) returns (stream HeartbeatResponse);
+}
+
+// ─── Bootstrap ───
+
+message BootstrapEnrollRequest {
+  string csr_pem   = 1; // PEM-encoded CSR for the operational cert
+  string model     = 2;
+  string firmware  = 3;
+  map<string,string> labels = 4;
+  // Serial echoed here for cross-validation; authoritative value comes
+  // from the mTLS peer certificate CN extracted by the server.
+  string serial    = 5;
+}
+
+message BootstrapEnrollResponse {
+  string device_id             = 1;
+  string operational_cert_pem  = 2; // signed by Fleet CA
+  string fleet_ca_chain_pem    = 3; // robot pins this for all future calls
+  google.protobuf.Timestamp cert_expires_at = 4;
+}
+
+// ─── Certificate renewal ───
+
+message RenewCertRequest  { string device_id = 1; string csr_pem = 2; }
+message RenewCertResponse {
+  string operational_cert_pem = 1;
+  google.protobuf.Timestamp cert_expires_at = 2;
+}
+
+// ─── Device queries ───
+
+message GetDeviceRequest   { string device_id = 1; }
+message ListDevicesRequest {
+  string model   = 1;
+  string status  = 2;
+  int32  limit   = 3;
+  string cursor  = 4;
+}
+message ListDevicesResponse { repeated DeviceInfo devices = 1; string next_cursor = 2; }
+
+message UpdateDeviceStatusRequest  { string device_id = 1; string status = 2; string reason = 3; }
+message UpdateDeviceStatusResponse { DeviceInfo device = 1; }
+
+// ─── Heartbeat ───
+
+message HeartbeatRequest {
+  string device_id                      = 1;
+  google.protobuf.Timestamp recorded_at = 2;
+  double cpu_percent                    = 3;
+  double memory_percent                 = 4;
+  double battery_percent                = 5;
+  string operational_status             = 6; // "ok"|"degraded"|"error"
+  map<string,string> extra              = 7;
+}
+
+message HeartbeatResponse {
+  bool   throttle  = 1; // ask client to reduce frequency
+  string directive = 2; // ""|"reboot"|"shutdown"
+}
+
+// ─────────────────────────────────────────────
+// OTA Service
+//
+// All RPCs require operational cert (mTLS, fleet CA trust anchor).
+// Depends on Device Management for device ID validation (internal gRPC).
+// Depends on Artifact Store for artifact metadata (internal gRPC).
+// ─────────────────────────────────────────────
+
+service OTAService {
+  // CheckUpdate polls for an available update for this device+version.
+  rpc CheckUpdate(CheckUpdateRequest)         returns (CheckUpdateResponse);
+
+  // WatchUpdates is a server-side stream; delivers update commands in real time.
+  rpc WatchUpdates(WatchUpdatesRequest)       returns (stream UpdateCommand);
+
+  // AckUpdate reports success or failure after applying an update.
+  rpc AckUpdate(AckUpdateRequest)             returns (AckUpdateResponse);
+
+  // DispatchUpdate pushes an update job to a device (operator use).
+  rpc DispatchUpdate(DispatchUpdateRequest)   returns (DispatchUpdateResponse);
+
+  // ListUpdateJobs returns the update history for a device (operator use).
+  rpc ListUpdateJobs(ListUpdateJobsRequest)   returns (ListUpdateJobsResponse);
+}
+
+message CheckUpdateRequest  { string device_id = 1; string current_version = 2; }
+message CheckUpdateResponse {
+  bool   update_available = 1;
+  string target_version   = 2;
+  string artifact_url     = 3;
+  string sha256           = 4;
+  uint64 size_bytes       = 5;
+  string update_job_id    = 6;
+}
+
+message WatchUpdatesRequest { string device_id = 1; }
+
+message UpdateCommand {
+  string update_job_id  = 1;
+  string target_version = 2;
+  string artifact_url   = 3;
+  string sha256         = 4;
+  uint64 size_bytes     = 5;
+  google.protobuf.Timestamp apply_by = 6; // zero = ASAP
+}
+
+message AckUpdateRequest  {
+  string device_id     = 1;
+  string update_job_id = 2;
+  string version       = 3;
+  bool   success       = 4;
+  string error_message = 5;
+}
+message AckUpdateResponse { bool accepted = 1; }
+
+message DispatchUpdateRequest {
+  string device_id      = 1;
+  string target_version = 2;
+  string artifact_id    = 3;
+  google.protobuf.Timestamp apply_by = 4;
+}
+message DispatchUpdateResponse { UpdateJob job = 1; }
+
+message ListUpdateJobsRequest  { string device_id = 1; int32 limit = 2; string cursor = 3; }
+message ListUpdateJobsResponse { repeated UpdateJob jobs = 1; string next_cursor = 2; }
+
+message UpdateJob {
+  string update_job_id  = 1;
+  string device_id      = 2;
+  string target_version = 3;
+  string status         = 4; // "pending"|"in_progress"|"success"|"failed"
+  string artifact_url   = 5;
+  google.protobuf.Timestamp created_at   = 6;
+  google.protobuf.Timestamp completed_at = 7;
+  string error_message  = 8;
+}
+
+// ─────────────────────────────────────────────
+// Telemetry Service
+//
+// Separate from heartbeat: high-frequency joint/sensor data for analysis.
+// All RPCs require operational cert (mTLS, fleet CA trust anchor).
+// ─────────────────────────────────────────────
+
+service TelemetryService {
+  rpc StreamTelemetry(stream TelemetryFrame) returns (stream TelemetryAck);
+}
+
+message TelemetryFrame {
+  string device_id                      = 1;
+  google.protobuf.Timestamp recorded_at = 2;
+  repeated JointStatus joints           = 3;
+  repeated SensorReading sensors        = 4;
+  map<string,double> metrics            = 5;
+}
+
+message JointStatus {
+  string name          = 1;
+  double position_rad  = 2;
+  double torque_nm     = 3;
+  double temperature_c = 4;
+}
+
+message SensorReading {
+  string sensor_id = 1;
+  string type      = 2; // "imu"|"lidar"|"camera_depth"
+  bytes  payload   = 3;
+}
+
+message TelemetryAck {
+  uint64 frames_received = 1;
+  bool   throttle        = 2;
+}
