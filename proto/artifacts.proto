@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package artifacts.v1;
+
+option go_package = "github.com/robot-fleet/proto/artifacts/v1;artifactsv1";
+
+import "google/protobuf/timestamp.proto";
+
+// ─────────────────────────────────────────────
+// Artifact Store service
+// ─────────────────────────────────────────────
+
+service ArtifactService {
+  // PublishArtifact registers a new software version in the registry.
+  rpc PublishArtifact(PublishRequest)       returns (PublishResponse);
+  // GetArtifact returns metadata for a specific version.
+  rpc GetArtifact(GetArtifactRequest)       returns (ArtifactMeta);
+  // ListArtifacts returns all versions for a given model.
+  rpc ListArtifacts(ListArtifactsRequest)   returns (ListArtifactsResponse);
+  // GetLatest returns the latest stable version for a model.
+  rpc GetLatest(GetLatestRequest)           returns (ArtifactMeta);
+  // GenerateUploadURL returns a pre-signed S3 URL for uploading a binary.
+  rpc GenerateUploadURL(UploadURLRequest)   returns (UploadURLResponse);
+}
+
+message ArtifactMeta {
+  string   artifact_id   = 1;
+  string   model         = 2;
+  string   version       = 3;
+  string   download_url  = 4;
+  string   sha256        = 5;
+  uint64   size_bytes    = 6;
+  string   channel       = 7; // "stable" | "beta" | "canary"
+  google.protobuf.Timestamp created_at = 8;
+  map<string,string> metadata = 9;
+}
+
+message PublishRequest {
+  string model      = 1;
+  string version    = 2;
+  string sha256     = 3;
+  uint64 size_bytes = 4;
+  string channel    = 5;
+  string object_key = 6; // S3 object key after upload
+  map<string,string> metadata = 7;
+}
+message PublishResponse { ArtifactMeta artifact = 1; }
+
+message GetArtifactRequest  { string artifact_id = 1; }
+message GetLatestRequest     { string model = 1; string channel = 2; }
+message ListArtifactsRequest { string model = 1; string channel = 2; int32 limit = 3; }
+message ListArtifactsResponse { repeated ArtifactMeta artifacts = 1; }
+
+message UploadURLRequest  { string model = 1; string version = 2; string content_type = 3; }
+message UploadURLResponse { string upload_url = 1; string object_key = 2; }
