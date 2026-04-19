@@ -47,8 +47,9 @@ uuid    = { version = "1.10", features = ["v4"] }
 rand    = { version = "0.8" }
 
 # Error handling
-thiserror = { version = "1.0" }
-anyhow    = { version = "1.0" }
+thiserror    = { version = "1.0" }
+anyhow       = { version = "1.0" }
+async-trait  = { version = "0.1" }
 
 # Observability
 tracing            = { version = "0.1" }
