@@ -1,24 +1,22 @@
-# Go
-bin/
-*.test
-*.out
-vendor/
-
 # Rust
 target/
-Cargo.lock
+**/*.rs.bk
 
-# PKI — never commit private keys
-pki/certs/*.pem
+# PKI — never commit private keys or generated certs
 pki/certs/
-
-# Generated protobuf stubs
-**/pb/*.go
-**/pb/*.rs
+**/*.key.pem
+**/*-key.pem
+*.p12
+*.pfx
 
 # SQLite dev databases
 *.db
 *.sqlite
+
+# Simulator
+simulator/__pycache__/
+simulator/*.pyc
+simulator/.pytest_cache/
 
 # IDE
 .vscode/
@@ -29,5 +27,9 @@ pki/certs/
 .DS_Store
 Thumbs.db
 
-# Docker
-.env
+# Project internals
+HANDOFF.md
+
+# Demo secrets
+demo/.env
+demo/certs/
