@@ -1,0 +1,33 @@
+# Go
+bin/
+*.test
+*.out
+vendor/
+
+# Rust
+target/
+Cargo.lock
+
+# PKI — never commit private keys
+pki/certs/*.pem
+pki/certs/
+
+# Generated protobuf stubs
+**/pb/*.go
+**/pb/*.rs
+
+# SQLite dev databases
+*.db
+*.sqlite
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.env
