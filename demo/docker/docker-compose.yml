@@ -1,4 +1,4 @@
-version: "3.9"
+name: robot-fleet
 
 # Run from repo root:
 #   docker compose -f demo/docker/docker-compose.yml up --build
@@ -17,7 +17,7 @@ x-robot-agent: &robot-agent
     context: ../..
     dockerfile: demo/docker/Dockerfile.robot-agent
   environment: &robot-agent-env
-    DEVICE_MODEL:       h1-humanoid
+    DEVICE_MODEL:       Alpha Wheeled
     FIRMWARE_VERSION:   "0.1.0"
     AGENT_DATA_DIR:     /data
     PROVISIONING_ADDR:  "https://device-management-service:8445"
@@ -46,8 +46,8 @@ services:
       FLEET_CA_KEY_PEM:   /certs/fleet-ca-key.pem
       DEVICE_CA_CERT_PEM: /certs/device-ca.pem
       DEVICE_CA_KEY_PEM:  /certs/device-ca-key.pem
-      # Format: serial:token:model  (model optional, defaults to h1-humanoid)
-      FACTORY_MANIFEST:   "robot-001:tk-r001,robot-002:tk-r002,robot-003:tk-r003,robot-004:tk-r004,robot-005:tk-r005"
+      # Format: serial:token:model  (model optional, defaults to Alpha Wheeled)
+      FACTORY_MANIFEST:   "robot-001:tk-r001:Alpha Wheeled,robot-002:tk-r002:Alpha Wheeled,robot-003:tk-r003:Alpha Wheeled,robot-004:tk-r004:Alpha Wheeled,robot-005:tk-r005:Alpha Wheeled"
       RUST_LOG:           "info"
     volumes:
       - ./../../demo/pki/certs:/certs:ro

@@ -78,17 +78,21 @@ hardware-bound). The token is the software stand-in for that proof.
 # 1. Generate PKI infrastructure (Fleet CA, Device CA, server cert)
 rm -rf demo/pki/certs && bash demo/pki/bootstrap.sh
 
-# 2. Start the fleet management service
-sudo docker compose -f demo/docker/docker-compose.yml down -v
-sudo docker compose -f demo/docker/docker-compose.yml up --build -d device-management-service
+# 2. Wipe state and build
+docker compose -f demo/docker/docker-compose.yml down -v
+docker compose -f demo/docker/docker-compose.yml build device-management-service
+docker compose -f demo/docker/docker-compose.yml build robot-agent-1
 
-# 3. Add robots live — each one runs all three phases automatically
-sudo docker compose -f demo/docker/docker-compose.yml up -d robot-agent-1
-sudo docker compose -f demo/docker/docker-compose.yml up -d robot-agent-2
-sudo docker compose -f demo/docker/docker-compose.yml up -d robot-agent-3
+# 3. Start the fleet management service
+docker compose -f demo/docker/docker-compose.yml up -d device-management-service
 
-# Watch what happens in the DMS
-sudo docker compose -f demo/docker/docker-compose.yml logs -f device-management-service
+# 4. Open a log tail in a second terminal
+docker logs -f $(docker compose -f demo/docker/docker-compose.yml ps -q device-management-service)
+
+# 5. Add robots live — each one runs all three phases automatically
+docker compose -f demo/docker/docker-compose.yml up -d robot-agent-1
+docker compose -f demo/docker/docker-compose.yml up -d robot-agent-2
+docker compose -f demo/docker/docker-compose.yml up -d robot-agent-3
 ```
 
 **Expected DMS log sequence per robot:**

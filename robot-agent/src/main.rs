@@ -43,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
     let manager = enrollment::EnrollmentManager {
         cert_dir: cert_dir.clone(),
         serial:   serial.clone(),
-        model:    env_or("DEVICE_MODEL", "h1-humanoid"),
+        model:    env_or("DEVICE_MODEL", "Alpha Wheeled"),
         firmware: env_or("FIRMWARE_VERSION", "0.1.0"),
     };
 

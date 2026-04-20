@@ -51,14 +51,14 @@ async fn main() -> anyhow::Result<()> {
     let store = Arc::new(SqliteDeviceStore::new(&db_path).context("failed to open DB")?);
 
     // ── Phase 0: seed factory manifest ───────────────────────────────────────
-    // Format: "serial:token:model,serial:token:model,..."  model is optional (defaults to h1-humanoid)
+    // Format: "serial:token:model,serial:token:model,..."  model is optional (defaults to Alpha Wheeled)
     let mut manifest_count = 0u32;
     if let Ok(manifest) = std::env::var("FACTORY_MANIFEST") {
         for entry in manifest.split(',').map(str::trim).filter(|s| !s.is_empty()) {
             let parts: Vec<&str> = entry.splitn(3, ':').collect();
             let (serial, token, model) = match parts.as_slice() {
                 [s, t, m] => (*s, *t, *m),
-                [s, t]    => (*s, *t, "h1-humanoid"),
+                [s, t]    => (*s, *t, "Alpha Wheeled"),
                 _         => { tracing::warn!("invalid FACTORY_MANIFEST entry: {entry}"); continue; }
             };
             store.seed_manifest(serial, model, token).await
