@@ -37,6 +37,7 @@ services:
       BOOTSTRAP_ADDR:      "https://device-management-service:8444"
       FLEET_SERVICE_ADDR:  "https://device-management-service:8443"
       OTA_SERVICE_ADDR:    "https://device-management-service:8443"
+      FLEET_CA_CERT_PEM:   /certs/fleet-ca.pem
       DEVICE_CERT_PEM:     /certs/device.pem
       DEVICE_KEY_PEM:      /certs/device-key.pem
       DEVICE_CA_CERT_PEM:  /certs/device-ca.pem

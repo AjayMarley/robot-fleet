@@ -46,11 +46,14 @@ async fn main() -> anyhow::Result<()> {
         firmware: env_or("FIRMWARE_VERSION", "0.1.0"),
     };
 
-    // Bootstrap enrollment — uses device CA mTLS (no operational cert yet)
+    // Bootstrap enrollment — device cert as client cert, fleet CA to verify server
+    // The server cert is signed by fleet-ca; device-ca is only used server-side
+    // to verify our client cert.
+    let fleet_ca_pem = std::fs::read_to_string(env_required("FLEET_CA_CERT_PEM")?)?;
     if !manager.is_enrolled() {
         info!("Not enrolled — starting bootstrap enrollment");
         let bootstrap_addr = env_required("BOOTSTRAP_ADDR")?;
-        let bootstrap_tls = mtls_config(&manager.device_cert_pem, &manager.device_key_pem, &manager.device_ca_pem);
+        let bootstrap_tls = mtls_config(&manager.device_cert_pem, &manager.device_key_pem, &fleet_ca_pem);
         let bootstrap_channel = Channel::from_shared(bootstrap_addr)?
             .tls_config(bootstrap_tls)?
             .connect()
@@ -61,7 +64,7 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Loading operational credentials");
     let (op_cert, op_key) = manager.load_operational_creds()?;
-    let fleet_ca = manager.fleet_ca_pem()?;
+    let fleet_ca = fleet_ca_pem;
     let device_id = env_or("DEVICE_SERIAL", &manager.serial);
 
     // Operational channels use Fleet CA mTLS
