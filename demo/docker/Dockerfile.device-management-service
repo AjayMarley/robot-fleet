@@ -1,18 +1,19 @@
-FROM rust:1.78-slim AS builder
+FROM rust:1.85-slim AS builder
 WORKDIR /build
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 COPY Cargo.toml Cargo.lock ./
 COPY proto        proto/
 COPY pki          pki/
 COPY device-management-service device-management-service/
-# Stub out other workspace members so Cargo doesn't fail
-RUN mkdir -p ota-service/src artifact-store/src robot-agent/src && \
-    echo '[package]\nname="ota-service"\nversion="0.1.0"\nedition="2021"\n[[bin]]\nname="ota-service"\npath="src/main.rs"' > ota-service/Cargo.toml && \
-    echo 'fn main(){}' > ota-service/src/main.rs && \
-    echo '[package]\nname="artifact-store"\nversion="0.1.0"\nedition="2021"\n[[bin]]\nname="artifact-store"\npath="src/main.rs"' > artifact-store/Cargo.toml && \
-    echo 'fn main(){}' > artifact-store/src/main.rs && \
-    echo '[package]\nname="robot-agent"\nversion="0.1.0"\nedition="2021"\n[[bin]]\nname="robot-agent"\npath="src/main.rs"' > robot-agent/Cargo.toml && \
-    echo 'fn main(){}' > robot-agent/src/main.rs
+
+RUN mkdir -p ota-service/src artifact-store/src robot-agent/src
+RUN printf '[package]\nname="ota-service"\nversion="0.1.0"\nedition="2021"\n[[bin]]\nname="ota-service"\npath="src/main.rs"\n' \
+        > ota-service/Cargo.toml && printf 'fn main(){}\n' > ota-service/src/main.rs
+RUN printf '[package]\nname="artifact-store"\nversion="0.1.0"\nedition="2021"\n[[bin]]\nname="artifact-store"\npath="src/main.rs"\n' \
+        > artifact-store/Cargo.toml && printf 'fn main(){}\n' > artifact-store/src/main.rs
+RUN printf '[package]\nname="robot-agent"\nversion="0.1.0"\nedition="2021"\n[[bin]]\nname="robot-agent"\npath="src/main.rs"\n' \
+        > robot-agent/Cargo.toml && printf 'fn main(){}\n' > robot-agent/src/main.rs
+
 RUN cargo build --release -p device-management-service
 
 FROM debian:bookworm-slim

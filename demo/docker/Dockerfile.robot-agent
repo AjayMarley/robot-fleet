@@ -1,18 +1,21 @@
-FROM rust:1.78-slim AS builder
+FROM rust:1.85-slim AS builder
 WORKDIR /build
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 COPY Cargo.toml Cargo.lock ./
 COPY proto        proto/
 COPY pki          pki/
 COPY robot-agent  robot-agent/
-RUN mkdir -p ota-service/src artifact-store/src device-management-service/src && \
-    echo '[package]\nname="ota-service"\nversion="0.1.0"\nedition="2021"\n[[bin]]\nname="ota-service"\npath="src/main.rs"' > ota-service/Cargo.toml && \
-    echo 'fn main(){}' > ota-service/src/main.rs && \
-    echo '[package]\nname="artifact-store"\nversion="0.1.0"\nedition="2021"\n[[bin]]\nname="artifact-store"\npath="src/main.rs"' > artifact-store/Cargo.toml && \
-    echo 'fn main(){}' > artifact-store/src/main.rs && \
-    echo '[package]\nname="device-management-service"\nversion="0.1.0"\nedition="2021"\n[lib]\nname="device_management_service"\npath="src/lib.rs"\n[[bin]]\nname="device-management-service"\npath="src/main.rs"' > device-management-service/Cargo.toml && \
-    echo 'fn main(){}' > device-management-service/src/main.rs && \
-    echo '' > device-management-service/src/lib.rs
+
+RUN mkdir -p ota-service/src artifact-store/src device-management-service/src
+RUN printf '[package]\nname="ota-service"\nversion="0.1.0"\nedition="2021"\n[[bin]]\nname="ota-service"\npath="src/main.rs"\n' \
+        > ota-service/Cargo.toml && printf 'fn main(){}\n' > ota-service/src/main.rs
+RUN printf '[package]\nname="artifact-store"\nversion="0.1.0"\nedition="2021"\n[[bin]]\nname="artifact-store"\npath="src/main.rs"\n' \
+        > artifact-store/Cargo.toml && printf 'fn main(){}\n' > artifact-store/src/main.rs
+RUN printf '[package]\nname="device-management-service"\nversion="0.1.0"\nedition="2021"\n[lib]\nname="device_management_service"\npath="src/lib.rs"\n[[bin]]\nname="device-management-service"\npath="src/main.rs"\n' \
+        > device-management-service/Cargo.toml && \
+    printf 'fn main(){}\n' > device-management-service/src/main.rs && \
+    printf '\n' > device-management-service/src/lib.rs
+
 RUN cargo build --release -p robot-agent
 
 FROM debian:bookworm-slim
