@@ -1,4 +1,7 @@
+from .backends import SimulatorBackend, SineWaveBackend, IsaacSimBackend, WebotsBackend
 from .robot_controller import RobotController
-from .socket_bridge import SocketBridge
 
-__all__ = ["RobotController", "SocketBridge"]
+__all__ = [
+    "SimulatorBackend", "SineWaveBackend", "IsaacSimBackend", "WebotsBackend",
+    "RobotController",
+]
