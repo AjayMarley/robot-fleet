@@ -1,0 +1,52 @@
+version: "3.9"
+
+# Run from repo root:
+#   docker compose -f demo/docker/docker-compose.yml up --build
+
+services:
+  device-management-service:
+    build:
+      context: ../..
+      dockerfile: demo/docker/Dockerfile.device-management-service
+    environment:
+      LISTEN_ADDR:       "[::]:8443"
+      BOOTSTRAP_ADDR:    "[::]:8444"
+      DB_PATH:           /data/fleet.db
+      CERT_VALIDITY_DAYS: "30"
+      SERVER_CERT_PEM:   /certs/server.pem
+      SERVER_KEY_PEM:    /certs/server-key.pem
+      FLEET_CA_CERT_PEM: /certs/fleet-ca.pem
+      FLEET_CA_KEY_PEM:  /certs/fleet-ca-key.pem
+      DEVICE_CA_CERT_PEM: /certs/device-ca.pem
+    volumes:
+      - ./../../demo/pki/certs:/certs:ro
+      - dms-data:/data
+    ports:
+      - "8443:8443"
+      - "8444:8444"
+
+  robot-agent:
+    build:
+      context: ../..
+      dockerfile: demo/docker/Dockerfile.robot-agent
+    environment:
+      DEVICE_SERIAL:       robot-001
+      DEVICE_MODEL:        h1-humanoid
+      FIRMWARE_VERSION:    "0.1.0"
+      AGENT_DATA_DIR:      /data
+      BOOTSTRAP_ADDR:      "https://device-management-service:8444"
+      FLEET_SERVICE_ADDR:  "https://device-management-service:8443"
+      OTA_SERVICE_ADDR:    "https://device-management-service:8443"
+      DEVICE_CERT_PEM:     /certs/device.pem
+      DEVICE_KEY_PEM:      /certs/device-key.pem
+      DEVICE_CA_CERT_PEM:  /certs/device-ca.pem
+      RUST_LOG:            "info"
+    volumes:
+      - ./../../demo/pki/certs:/certs:ro
+      - agent-data:/data
+    depends_on:
+      - device-management-service
+
+volumes:
+  dms-data:
+  agent-data:
