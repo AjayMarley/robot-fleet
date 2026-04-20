@@ -3,6 +3,12 @@
 A production-architecture demonstration of a humanoid robot fleet management
 system. Each component is independently testable and independently deployable.
 
+
+
+https://github.com/user-attachments/assets/f11283bf-39e0-435b-9531-d058afcc0243
+
+
+
 ## Repository layout
 
 ```
@@ -19,6 +25,10 @@ demo/                       # Docker Compose demo orchestration + PKI bootstrap
 ## Device lifecycle — three phases
 
 ```
+
+https://github.com/user-attachments/assets/15b5f7ce-61dd-410b-8fe1-b6a970630880
+
+
 Phase 0  Manufacturing (offline, one-time per batch)
   ├─ Operator seeds FACTORY_MANIFEST with serial + one-time token + model
   └─ Token represents a secret injected at manufacturing time
