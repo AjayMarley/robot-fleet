@@ -14,7 +14,7 @@ members = [
 [workspace.dependencies]
 # Async runtime
 tokio        = { version = "1.38", features = ["full"] }
-tokio-stream = { version = "0.1" }
+tokio-stream = { version = "0.1", features = ["sync"] }
 
 # gRPC + protobuf
 tonic        = { version = "0.12", features = ["tls", "tls-roots"] }
@@ -45,6 +45,9 @@ sha2    = { version = "0.10" }
 hex     = { version = "0.4" }
 uuid    = { version = "1.10", features = ["v4"] }
 rand    = { version = "0.8" }
+
+# Bytes buffer
+bytes = { version = "1.6" }
 
 # Error handling
 thiserror    = { version = "1.0" }
