@@ -47,6 +47,9 @@ hex     = { version = "0.4" }
 uuid    = { version = "1.10", features = ["v4"] }
 rand    = { version = "0.8" }
 
+# Bytes buffer
+bytes = { version = "1.6" }
+
 # Error handling
 thiserror    = { version = "1.0" }
 anyhow       = { version = "1.0" }
