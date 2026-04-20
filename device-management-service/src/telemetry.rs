@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::StreamExt as _;
 use tonic::{Request, Response, Status, Streaming};
@@ -6,6 +8,8 @@ use tracing::info;
 use robot_fleet_proto::fleet::v1::{
     telemetry_service_server::TelemetryService, TelemetryAck, TelemetryFrame,
 };
+
+const LOG_INTERVAL: Duration = Duration::from_secs(5);
 
 pub struct TelemetryServer;
 
@@ -24,16 +28,30 @@ impl TelemetryService for TelemetryServer {
 
         tokio::spawn(async move {
             let mut frames_received: u64 = 0;
+            let mut frames_in_window: u64 = 0;
+            let mut last_log = Instant::now();
+            let mut device_id = String::new();
+
             while let Some(result) = stream.next().await {
                 match result {
                     Ok(frame) => {
                         frames_received += 1;
-                        info!(
-                            device_id = %frame.device_id,
-                            joints = frame.joints.len(),
-                            frames_received,
-                            "telemetry frame received"
-                        );
+                        frames_in_window += 1;
+                        device_id = frame.device_id.clone();
+
+                        if last_log.elapsed() >= LOG_INTERVAL {
+                            info!(
+                                device_id        = %device_id,
+                                frames_in_window,
+                                frames_total     = frames_received,
+                                fps              = frames_in_window / LOG_INTERVAL.as_secs(),
+                                port             = 8443,
+                                "[Phase 3] telemetry stream active"
+                            );
+                            frames_in_window = 0;
+                            last_log = Instant::now();
+                        }
+
                         if tx.send(Ok(TelemetryAck { frames_received, throttle: false })).await.is_err() {
                             break;
                         }
@@ -43,6 +61,15 @@ impl TelemetryService for TelemetryServer {
                         break;
                     }
                 }
+            }
+
+            if frames_in_window > 0 {
+                info!(
+                    device_id    = %device_id,
+                    frames_in_window,
+                    frames_total = frames_received,
+                    "[Phase 3] telemetry stream ended"
+                );
             }
         });
 

@@ -28,12 +28,21 @@ cat > "$CERTS/fleet-ca-csr.json" <<'JSON'
 {"CN":"Fleet CA","key":{"algo":"ecdsa","size":256},"names":[{"O":"RobotFleet"}]}
 JSON
 cfssl gencert -initca "$CERTS/fleet-ca-csr.json" | cfssljson -bare "$CERTS/fleet-ca"
+# cfssl emits SEC1 ("BEGIN EC PRIVATE KEY"); rcgen 0.13 needs PKCS#8 ("BEGIN PRIVATE KEY")
+openssl pkcs8 -topk8 -nocrypt \
+  -in  "$CERTS/fleet-ca-key.pem" \
+  -out "$CERTS/fleet-ca-key.pem.tmp" \
+  && mv "$CERTS/fleet-ca-key.pem.tmp" "$CERTS/fleet-ca-key.pem"
 
 # ── Device CA (signs bootstrap device certs) ──────────────────────────────────
 cat > "$CERTS/device-ca-csr.json" <<'JSON'
 {"CN":"Device CA","key":{"algo":"ecdsa","size":256},"names":[{"O":"RobotFleet"}]}
 JSON
 cfssl gencert -initca "$CERTS/device-ca-csr.json" | cfssljson -bare "$CERTS/device-ca"
+openssl pkcs8 -topk8 -nocrypt \
+  -in  "$CERTS/device-ca-key.pem" \
+  -out "$CERTS/device-ca-key.pem.tmp" \
+  && mv "$CERTS/device-ca-key.pem.tmp" "$CERTS/device-ca-key.pem"
 
 # ── Server cert (device-management-service — SANs cover Docker service names) ─
 cat > "$CERTS/server-csr.json" <<'JSON'
@@ -44,15 +53,12 @@ cfssl gencert \
   -config="$CERTS/ca-config.json" -profile=peer \
   "$CERTS/server-csr.json" | cfssljson -bare "$CERTS/server"
 
-# ── Device bootstrap cert (robot-agent uses this to enroll) ───────────────────
-cat > "$CERTS/device-csr.json" <<'JSON'
-{"CN":"robot-001","hosts":[],"key":{"algo":"ecdsa","size":256},"names":[{"O":"RobotFleet"}]}
-JSON
-cfssl gencert \
-  -ca="$CERTS/device-ca.pem" -ca-key="$CERTS/device-ca-key.pem" \
-  -config="$CERTS/ca-config.json" -profile=client \
-  "$CERTS/device-csr.json" | cfssljson -bare "$CERTS/device"
 
 echo ""
 echo "PKI bootstrap complete. Certs written to demo/pki/certs/"
+echo ""
+echo "Note: per-device certs are NO LONGER generated offline."
+echo "Each robot provisions itself at first boot via the ProvisioningService (Phase 1)."
+echo "The factory manifest tokens are set in docker-compose.yml FACTORY_MANIFEST."
+echo ""
 ls -1 "$CERTS/"*.pem

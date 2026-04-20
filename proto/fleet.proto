@@ -22,6 +22,30 @@ message DeviceInfo {
 }
 
 // ─────────────────────────────────────────────
+// Provisioning Service  (Phase 1 — factory / first boot)
+//
+// Called before the device has a cert. TLS-only, no mTLS.
+// Auth: serial in factory manifest + one-time provision token.
+// On success: returns device cert signed by Device CA and seeds
+// the device into the pre-enrollment table for Phase 2.
+// Served on a dedicated port (8445) separate from fleet operations.
+// ─────────────────────────────────────────────
+
+service ProvisioningService {
+  rpc ProvisionDevice(ProvisionDeviceRequest) returns (ProvisionDeviceResponse);
+}
+
+message ProvisionDeviceRequest {
+  string serial          = 1;
+  string csr_pem         = 2;
+  string provision_token = 3;
+}
+
+message ProvisionDeviceResponse {
+  string device_cert_pem = 1; // signed by Device CA; robot stores and uses for bootstrap
+}
+
+// ─────────────────────────────────────────────
 // Device Management Service
 //
 // Auth model:
