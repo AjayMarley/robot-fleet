@@ -36,6 +36,7 @@ impl<S: DeviceStore> HeartbeatHandler<S> {
         };
 
         let device_id = first.device_id.clone();
+        tracing::info!(device_id, port = 8443, "[Phase 3] heartbeat stream connected — robot is live");
         let combined = futures::stream::once(async move { Ok(first) }).chain(stream);
         futures::pin_mut!(combined);
 
@@ -76,6 +77,8 @@ impl<S: DeviceStore> HeartbeatHandler<S> {
                 }
             }
         }
+
+        tracing::info!(device_id, "[Phase 3] heartbeat stream disconnected");
     }
 }
 

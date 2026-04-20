@@ -33,3 +33,4 @@ HANDOFF.md
 # Demo secrets
 demo/.env
 demo/certs/
+demo/pki/certs/

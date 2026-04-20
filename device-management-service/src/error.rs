@@ -14,6 +14,12 @@ pub enum Error {
     SerialMismatch { cert: String, request: String },
     #[error("cert verification failed: {0}")]
     CertVerification(String),
+    #[error("serial not in factory manifest: {0}")]
+    NotInManifest(String),
+    #[error("invalid provision token for serial: {0}")]
+    InvalidProvisionToken(String),
+    #[error("device already provisioned: {0}")]
+    AlreadyProvisioned(String),
     #[error("database error: {0}")]
     Db(#[from] rusqlite::Error),
     #[error("PKI error: {0}")]

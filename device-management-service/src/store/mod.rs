@@ -51,6 +51,10 @@ pub trait DeviceStore: Send + Sync {
     ) -> Result<(Vec<DeviceRecord>, Option<String>), Error>;
     async fn register_serial(&self, serial: &str, model: &str) -> Result<(), Error>;
     async fn lookup_and_claim(&self, serial: &str) -> Result<PreEnrollmentRecord, Error>;
+    async fn count_devices(&self) -> Result<u64, Error>;
+    // ── Factory manifest (Phase 0 / Phase 1) ──
+    async fn seed_manifest(&self, serial: &str, model: &str, token: &str) -> Result<(), Error>;
+    async fn claim_manifest_entry(&self, serial: &str, token: &str) -> Result<String, Error>;
 }
 
 // ── SQLite implementation ─────────────────────────────────────────────────────
@@ -60,6 +64,13 @@ pub struct SqliteDeviceStore {
 }
 
 const MIGRATION: &str = "
+CREATE TABLE IF NOT EXISTS factory_manifest (
+    serial         TEXT PRIMARY KEY,
+    model          TEXT NOT NULL,
+    token          TEXT NOT NULL,
+    provisioned_at INTEGER
+);
+
 CREATE TABLE IF NOT EXISTS devices (
     id                   TEXT PRIMARY KEY,
     serial               TEXT NOT NULL UNIQUE,
@@ -231,8 +242,13 @@ impl DeviceStore for SqliteDeviceStore {
 
     async fn register_serial(&self, serial: &str, model: &str) -> Result<(), Error> {
         let conn = self.conn.lock().map_err(|_| Error::Db(rusqlite::Error::InvalidQuery))?;
+        // Upsert: insert fresh or reset a stale claim (partial enrollment that never completed).
+        // If the device is fully enrolled (row exists in `devices`), leave claimed=1 intact
+        // so re-enrollment is still blocked.
         conn.execute(
-            "INSERT OR IGNORE INTO pre_enrollment (serial, model, claimed) VALUES (?1, ?2, 0)",
+            "INSERT INTO pre_enrollment (serial, model, claimed) VALUES (?1, ?2, 0)
+             ON CONFLICT(serial) DO UPDATE SET claimed = 0
+             WHERE NOT EXISTS (SELECT 1 FROM devices WHERE serial = excluded.serial)",
             rusqlite::params![serial, model],
         )?;
         Ok(())
@@ -277,6 +293,65 @@ impl DeviceStore for SqliteDeviceStore {
                 let _ = conn.execute_batch("ROLLBACK");
                 Err(e)
             }
+        }
+    }
+
+    async fn count_devices(&self) -> Result<u64, Error> {
+        let conn = self.conn.lock().map_err(|_| Error::Db(rusqlite::Error::InvalidQuery))?;
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM devices", [], |r| r.get(0))?;
+        Ok(n as u64)
+    }
+
+    async fn seed_manifest(&self, serial: &str, model: &str, token: &str) -> Result<(), Error> {
+        let conn = self.conn.lock().map_err(|_| Error::Db(rusqlite::Error::InvalidQuery))?;
+        conn.execute(
+            "INSERT OR IGNORE INTO factory_manifest (serial, model, token) VALUES (?1, ?2, ?3)",
+            rusqlite::params![serial, model, token],
+        )?;
+        Ok(())
+    }
+
+    async fn claim_manifest_entry(&self, serial: &str, token: &str) -> Result<String, Error> {
+        let conn = self.conn.lock().map_err(|_| Error::Db(rusqlite::Error::InvalidQuery))?;
+        conn.execute_batch("BEGIN IMMEDIATE")?;
+
+        let result: Result<String, Error> = (|| {
+            let row = conn.query_row(
+                "SELECT model, token, provisioned_at FROM factory_manifest WHERE serial = ?1",
+                [serial],
+                |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, Option<i64>>(2)?)),
+            )
+            .map_err(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => Error::NotInManifest(serial.to_string()),
+                other => Error::Db(other),
+            })?;
+
+            let (model, stored_token, provisioned_at) = row;
+            if stored_token != token {
+                return Err(Error::InvalidProvisionToken(serial.to_string()));
+            }
+            if provisioned_at.is_some() {
+                return Err(Error::AlreadyProvisioned(serial.to_string()));
+            }
+
+            let now = time::OffsetDateTime::now_utc().unix_timestamp();
+            conn.execute(
+                "UPDATE factory_manifest SET provisioned_at = ?1 WHERE serial = ?2",
+                rusqlite::params![now, serial],
+            )?;
+
+            // Seed pre_enrollment so Phase 2 bootstrap can proceed
+            conn.execute(
+                "INSERT OR IGNORE INTO pre_enrollment (serial, model, claimed) VALUES (?1, ?2, 0)",
+                rusqlite::params![serial, model],
+            )?;
+
+            Ok(model)
+        })();
+
+        match result {
+            Ok(model) => { conn.execute_batch("COMMIT")?; Ok(model) }
+            Err(e)    => { let _ = conn.execute_batch("ROLLBACK"); Err(e) }
         }
     }
 }

@@ -78,6 +78,16 @@ impl<S: DeviceStore> EnrollmentService<S> {
             })
             .await?;
 
+        tracing::info!(
+            device_id    = %record.id,
+            serial       = %record.serial,
+            model        = %record.model,
+            firmware     = %firmware,
+            cert_expires_at = %expires_at,
+            port         = 8444,
+            "[Phase 2 complete] bootstrap enrollment — operational cert issued (Fleet CA signed)"
+        );
+
         Ok(EnrollResult {
             device_id: record.id,
             operational_cert_pem: signed,
