@@ -1,0 +1,31 @@
+[package]
+name    = "ota-service"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "ota-service"
+path = "src/main.rs"
+
+[dependencies]
+robot-fleet-proto = { path = "../proto" }
+robot-fleet-pki   = { path = "../pki" }
+
+tokio        = { workspace = true }
+tokio-stream = { workspace = true }
+tonic        = { workspace = true }
+prost        = { workspace = true }
+prost-types  = { workspace = true }
+rusqlite     = { workspace = true }
+uuid         = { workspace = true }
+thiserror    = { workspace = true }
+anyhow       = { workspace = true }
+tracing      = { workspace = true }
+tracing-subscriber = { workspace = true }
+config       = { workspace = true }
+serde        = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+tempfile   = { workspace = true }
+mockall    = { workspace = true }
