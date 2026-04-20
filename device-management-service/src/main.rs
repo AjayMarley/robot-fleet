@@ -12,6 +12,9 @@ use device_management_service::store::SqliteDeviceStore;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("failed to install rustls crypto provider");
     tracing_subscriber::fmt::init();
 
     let listen_addr    = std::env::var("LISTEN_ADDR").unwrap_or_else(|_| "[::]:8443".into());
